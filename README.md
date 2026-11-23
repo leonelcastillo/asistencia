@@ -1,3 +1,3 @@
 # Asistencia semanal
 
-Personal propio por obra y disciplina, semana a semana. Los datos están cifrados; la página pide la clave.
+Personal propio por obra y disciplina, semana a semana. Los datos están cifrados; la página pide la clave. La actualiza GitHub Actions (.github/workflows/actualizar.yml) cada vez que el libro de obra cambia.

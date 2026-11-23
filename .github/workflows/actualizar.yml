@@ -1,0 +1,34 @@
+name: Actualizar asistencia
+# Revisa el libro cada 5 min de 6:30 am a 7 pm (hora de Venezuela, UTC-4), lu-sa, y publica solo si cambio.
+on:
+  schedule:
+    - cron: "30,35,40,45,50,55 10 * * 1-6"
+    - cron: "*/5 11-22 * * 1-6"
+    - cron: "0 23 * * 1-6"
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: asistencia
+  cancel-in-progress: false
+jobs:
+  actualizar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      TZ: America/Caracas
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -q psycopg2-binary cryptography pillow
+      - name: Publicar si el libro cambio
+        env:
+          MLDO_DB_URL: ${{ secrets.MLDO_DB_URL }}
+          ASISTENCIA_CLAVE: ${{ secrets.ASISTENCIA_CLAVE }}
+          ASISTENCIA_WEB: .
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          python generar/asistencia_semanal.py --si-cambia
