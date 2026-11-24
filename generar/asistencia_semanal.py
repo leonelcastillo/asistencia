@@ -185,48 +185,68 @@ th{border-bottom:2px solid var(--c);font-weight:600} th small{font-weight:400;co
 .ley{font-size:12px;color:#666}
 .btn{flex-shrink:0;background:var(--v);color:#fff;border:0;border-radius:6px;padding:10px 16px;
   font:inherit;font-size:15px;cursor:pointer} .btn:hover{background:#0b5843}
-#semana,#obra{font:inherit;font-size:15px;padding:9px 10px;border:2px solid var(--v);border-radius:6px;background:#fff;color:var(--c)}
+#semana,#obras summary{font:inherit;font-size:15px;padding:9px 10px;border:2px solid var(--v);border-radius:6px;background:#fff;color:var(--c)}
+#obras{position:relative} #obras summary{cursor:pointer;list-style:none;white-space:nowrap}
+#obras summary::-webkit-details-marker{display:none} #obras summary::after{content:" ▾";color:var(--v)}
+#obras .lista{position:absolute;right:0;top:calc(100% + 4px);z-index:5;background:#fff;border:2px solid var(--v);
+  border-radius:6px;padding:6px 4px;min-width:190px;box-shadow:0 6px 18px rgba(0,0,0,.18)}
+#obras label{display:flex;gap:10px;align-items:center;padding:8px 10px;font-size:15px;cursor:pointer}
+#obras label:hover{background:var(--vc)} #obras input{width:18px;height:18px;accent-color:var(--v)}
+#obras .todas{border-bottom:1px solid #ddd;font-weight:600}
 @media(max-width:600px){header{padding:12px 16px;flex-wrap:wrap;gap:10px} header img{height:40px}
-  header h1{font-size:18px} .acc{margin-left:0;width:100%} #semana,#obra{flex:1} th,td{padding:4px 3px;font-size:13px}}
+  header h1{font-size:18px} .acc{margin-left:0;width:100%} #semana,#obras{flex:1} #obras summary{display:block} #obras .lista{left:0;right:auto;width:100%} th,td{padding:4px 3px;font-size:13px}}
 @media print{.acc,#candado{display:none} body{background:#fff} main{padding:8px 0} section{padding:4px 0;break-inside:avoid}
   .rayas{height:0;border-top:2px solid var(--c)} .si,.sr,.fut{background:none} .res div,.av{background:none}}
 """
 
 # Selector de obras: filtra lo que ya está en la página (sirve igual para semanas viejas ya cifradas)
 OBRAS_JS = """<script>
-let OBRA = ''; try { OBRA = localStorage.getItem('obra') || ''; } catch(e){}
+// Obras marcadas (se guardan en este equipo). Ninguna marcada = todas.
+let MARCADAS = []; try { MARCADAS = JSON.parse(localStorage.getItem('obras') || '[]'); } catch(e){}
+const obrasEnPagina = () => [...document.querySelectorAll('#main section h2 span')].map(s => s.textContent.trim());
 function armarObras(){
-  const sel = document.getElementById('obra');
-  const obras = [...document.querySelectorAll('#main section h2 span')].map(s => s.textContent.trim());
-  sel.innerHTML = '<option value="">Todas las obras</option>' + obras.map(o => `<option>${o}</option>`).join('');
-  sel.value = obras.includes(OBRA) ? OBRA : '';
+  const lista = document.querySelector('#obras .lista');
+  lista.innerHTML = '<label class="todas"><input type="checkbox" value=""> Todas las obras</label>' +
+    obrasEnPagina().map(o => `<label><input type="checkbox" value="${o}"> ${o}</label>`).join('');
   filtrarObras();
 }
 function filtrarObras(){
-  const ver = document.getElementById('obra').value;
-  let pers = 0, dias = 0;
+  const hay = obrasEnPagina(), ver = MARCADAS.filter(o => hay.includes(o));
+  const todas = !ver.length;
+  document.querySelectorAll('#obras input').forEach(c => c.checked = c.value ? ver.includes(c.value) : todas);
+  document.querySelector('#obras summary').textContent =
+    todas ? 'Todas las obras' : ver.length === 1 ? ver[0] : ver.length + ' obras';
+  let pers = 0, dias = 0, conGente = 0;
   document.querySelectorAll('#main section').forEach(s => {
-    const o = s.querySelector('h2 span').textContent.trim();
-    s.hidden = !!ver && o !== ver;
-    if (!s.hidden) s.querySelectorAll('td.tot').forEach(t => { pers++; dias += +t.textContent || 0; });
+    s.hidden = !todas && !ver.includes(s.querySelector('h2 span').textContent.trim());
+    if (s.hidden) return;
+    const tot = s.querySelectorAll('td.tot');
+    if (tot.length) conGente++;
+    tot.forEach(t => { pers++; dias += +t.textContent || 0; });
   });
-  const res = document.querySelectorAll('#main .res > div');
-  if (res.length === 3) {
-    res[0].querySelector('b').textContent = pers;
-    res[1].querySelector('b').textContent = dias;
-    res[2].hidden = !!ver;
-  }
+  const res = document.querySelectorAll('#main .res > div b');
+  if (res.length === 3) { res[0].textContent = pers; res[1].textContent = dias; res[2].textContent = conGente; }
   const av = document.querySelector('#main .av');
   if (av) {
     let quedan = 0;
-    av.querySelectorAll('li').forEach(li => { li.hidden = !!ver && !li.textContent.startsWith(ver + ':'); quedan += !li.hidden; });
+    av.querySelectorAll('li').forEach(li => {
+      li.hidden = !todas && !ver.some(o => li.textContent.startsWith(o + ':')); quedan += !li.hidden; });
     av.hidden = !quedan;
   }
 }
-document.getElementById('obra').onchange = e => {
-  OBRA = e.target.value; try { localStorage.setItem('obra', OBRA); } catch(e){}
+document.querySelector('#obras .lista').onchange = e => {
+  const c = e.target;
+  if (!c.value) MARCADAS = [];
+  else {
+    const hay = obrasEnPagina();
+    MARCADAS = MARCADAS.filter(o => o !== c.value && hay.includes(o)).concat(
+      MARCADAS.filter(o => !hay.includes(o)));  // conserva las que no salen esta semana
+    if (c.checked) MARCADAS.push(c.value);
+  }
+  try { localStorage.setItem('obras', JSON.stringify(MARCADAS)); } catch(e){}
   filtrarObras();
 };
+document.addEventListener('click', e => { const d = document.getElementById('obras'); if (!d.contains(e.target)) d.open = false; });
 armarObras();
 </script>"""
 
@@ -242,7 +262,7 @@ def pagina(sub, main, selector="", extra_head="", extra_body=""):
 {CSS}</style></head><body>
 <header><img src="data:image/png;base64,{LOGO}" alt="OCAS"><div>
 <h1>Asistencia semanal · personal propio</h1><p id="sub">{sub}</p></div>
-<div class="acc">{selector}<select id="obra" aria-label="Obra"></select>{BOTON}</div></header>
+<div class="acc">{selector}<details id="obras"><summary>Todas las obras</summary><div class="lista"></div></details>{BOTON}</div></header>
 <div class="rayas"></div>
 <main id="main">
 {main}</main>{OBRAS_JS}{extra_body}</body></html>"""
