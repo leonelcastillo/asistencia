@@ -185,12 +185,50 @@ th{border-bottom:2px solid var(--c);font-weight:600} th small{font-weight:400;co
 .ley{font-size:12px;color:#666}
 .btn{flex-shrink:0;background:var(--v);color:#fff;border:0;border-radius:6px;padding:10px 16px;
   font:inherit;font-size:15px;cursor:pointer} .btn:hover{background:#0b5843}
-#semana{font:inherit;font-size:15px;padding:9px 10px;border:2px solid var(--v);border-radius:6px;background:#fff;color:var(--c)}
+#semana,#obra{font:inherit;font-size:15px;padding:9px 10px;border:2px solid var(--v);border-radius:6px;background:#fff;color:var(--c)}
 @media(max-width:600px){header{padding:12px 16px;flex-wrap:wrap;gap:10px} header img{height:40px}
-  header h1{font-size:18px} .acc{margin-left:0;width:100%} #semana{flex:1} th,td{padding:4px 3px;font-size:13px}}
+  header h1{font-size:18px} .acc{margin-left:0;width:100%} #semana,#obra{flex:1} th,td{padding:4px 3px;font-size:13px}}
 @media print{.acc,#candado{display:none} body{background:#fff} main{padding:8px 0} section{padding:4px 0;break-inside:avoid}
   .rayas{height:0;border-top:2px solid var(--c)} .si,.sr,.fut{background:none} .res div,.av{background:none}}
 """
+
+# Selector de obras: filtra lo que ya está en la página (sirve igual para semanas viejas ya cifradas)
+OBRAS_JS = """<script>
+let OBRA = ''; try { OBRA = localStorage.getItem('obra') || ''; } catch(e){}
+function armarObras(){
+  const sel = document.getElementById('obra');
+  const obras = [...document.querySelectorAll('#main section h2 span')].map(s => s.textContent.trim());
+  sel.innerHTML = '<option value="">Todas las obras</option>' + obras.map(o => `<option>${o}</option>`).join('');
+  sel.value = obras.includes(OBRA) ? OBRA : '';
+  filtrarObras();
+}
+function filtrarObras(){
+  const ver = document.getElementById('obra').value;
+  let pers = 0, dias = 0;
+  document.querySelectorAll('#main section').forEach(s => {
+    const o = s.querySelector('h2 span').textContent.trim();
+    s.hidden = !!ver && o !== ver;
+    if (!s.hidden) s.querySelectorAll('td.tot').forEach(t => { pers++; dias += +t.textContent || 0; });
+  });
+  const res = document.querySelectorAll('#main .res > div');
+  if (res.length === 3) {
+    res[0].querySelector('b').textContent = pers;
+    res[1].querySelector('b').textContent = dias;
+    res[2].hidden = !!ver;
+  }
+  const av = document.querySelector('#main .av');
+  if (av) {
+    let quedan = 0;
+    av.querySelectorAll('li').forEach(li => { li.hidden = !!ver && !li.textContent.startsWith(ver + ':'); quedan += !li.hidden; });
+    av.hidden = !quedan;
+  }
+}
+document.getElementById('obra').onchange = e => {
+  OBRA = e.target.value; try { localStorage.setItem('obra', OBRA); } catch(e){}
+  filtrarObras();
+};
+armarObras();
+</script>"""
 
 BOTON = ('<button class="btn" onclick="window.print()" '
          'title="En el destino elige Guardar como PDF para enviarlo">🖨 Imprimir / PDF</button>')
@@ -204,10 +242,10 @@ def pagina(sub, main, selector="", extra_head="", extra_body=""):
 {CSS}</style></head><body>
 <header><img src="data:image/png;base64,{LOGO}" alt="OCAS"><div>
 <h1>Asistencia semanal · personal propio</h1><p id="sub">{sub}</p></div>
-<div class="acc">{selector}{BOTON}</div></header>
+<div class="acc">{selector}<select id="obra" aria-label="Obra"></select>{BOTON}</div></header>
 <div class="rayas"></div>
 <main id="main">
-{main}</main>{extra_body}</body></html>"""
+{main}</main>{OBRAS_JS}{extra_body}</body></html>"""
 
 
 # ---------- Página en línea (GitHub Pages, cifrada como el recorrido) ----------
@@ -243,7 +281,7 @@ async function descifrar(archivo, clave){
 async function mostrar(lunes){
   $('sub').textContent = 'Cargando…';
   try { const d = await descifrar('semanas/' + lunes + '.enc', CLAVE);
-        $('sub').textContent = d.sub; $('main').innerHTML = d.main;
+        $('sub').textContent = d.sub; $('main').innerHTML = d.main; armarObras();
         try { history.replaceState(null, '', '#' + lunes); } catch(e){}
   } catch(e){ $('sub').textContent = 'No pude abrir esa semana: ' + e.message; }
 }
