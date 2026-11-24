@@ -48,9 +48,11 @@ th{border-bottom:2px solid var(--c);font-weight:600} th small{font-weight:400;co
 #obras summary::-webkit-details-marker{display:none} #obras summary::after{content:" ▾";color:var(--v)}
 #obras .lista{position:absolute;right:0;top:calc(100% + 4px);z-index:5;background:#fff;border:2px solid var(--v);
   border-radius:6px;padding:6px 4px;min-width:190px;box-shadow:0 6px 18px rgba(0,0,0,.18)}
-#obras label{display:flex;gap:10px;align-items:center;padding:8px 10px;font-size:15px;cursor:pointer}
+#obras label{display:flex;white-space:nowrap;gap:10px;align-items:center;padding:8px 10px;font-size:15px;cursor:pointer}
 #obras label:hover{background:var(--vc)} #obras input{width:18px;height:18px;accent-color:var(--v)}
-#obras .todas{border-bottom:1px solid #ddd;font-weight:600}
+#obras .todas,#obras .zona{font-weight:600} #obras .zona+label:not(.zona){border-top:1px solid #ddd}
+#obras label small{margin-left:auto;color:#888;font-size:12px}
+#nada{font-weight:600}
 @media(max-width:600px){header{padding:12px 16px;flex-wrap:wrap;gap:10px} header img{height:40px}
   header h1{font-size:18px} .acc{margin-left:0;width:100%} #semana,#obras{flex:1} #obras summary{display:block} #obras .lista{left:0;right:auto;width:100%} th,td{padding:4px 3px;font-size:13px}}
 @media print{.acc,#candado{display:none} body{background:#fff} main{padding:8px 0} section{padding:4px 0;break-inside:avoid}
@@ -62,26 +64,38 @@ th{border-bottom:2px solid var(--c);font-weight:600} th small{font-weight:400;co
 <div class="rayas"></div>
 <main id="main">
 </main><script>
-// Obras marcadas (se guardan en este equipo). Ninguna marcada = todas.
+// Obras y zonas marcadas (se guardan en este equipo). Nada marcado = todas.
+// Una zona marcada ("zona:Caracas") trae sola las obras nuevas de esa zona.
+const ZONAS = ['Lechería', 'Caracas'];
 let MARCADAS = []; try { MARCADAS = JSON.parse(localStorage.getItem('obras') || '[]'); } catch(e){}
-const obrasEnPagina = () => [...document.querySelectorAll('#main section h2 span')].map(s => s.textContent.trim());
+const secciones = () => [...document.querySelectorAll('#main section')].map(s => ({
+  s, obra: s.querySelector('h2 span').textContent.trim(), zona: s.dataset.zona || 'Lechería'}));
+const marcada = x => MARCADAS.includes('zona:' + x.zona) || MARCADAS.includes(x.obra);
+function guardar(){ try { localStorage.setItem('obras', JSON.stringify(MARCADAS)); } catch(e){} }
 function armarObras(){
-  const lista = document.querySelector('#obras .lista');
-  lista.innerHTML = '<label class="todas"><input type="checkbox" value=""> Todas las obras</label>' +
-    obrasEnPagina().map(o => `<label><input type="checkbox" value="${o}"> ${o}</label>`).join('');
+  document.querySelector('#obras .lista').innerHTML =
+    '<label class="todas"><input type="checkbox" data-t="todas"> Todas las obras</label>' +
+    ZONAS.map(z => `<label class="zona"><input type="checkbox" data-t="zona" value="${z}"> ${z}</label>`).join('') +
+    secciones().map(x => `<label><input type="checkbox" data-t="obra" value="${x.obra}"> ${x.obra} <small>${x.zona}</small></label>`).join('');
   filtrarObras();
 }
 function filtrarObras(){
-  const hay = obrasEnPagina(), ver = MARCADAS.filter(o => hay.includes(o));
-  const todas = !ver.length;
-  document.querySelectorAll('#obras input').forEach(c => c.checked = c.value ? ver.includes(c.value) : todas);
+  const xs = secciones(), todas = !MARCADAS.length;
+  document.querySelectorAll('#obras input').forEach(c => {
+    const t = c.dataset.t;
+    c.checked = t === 'todas' ? todas : t === 'zona' ? MARCADAS.includes('zona:' + c.value)
+      : !todas && marcada(xs.find(x => x.obra === c.value));
+  });
+  const zonas = ZONAS.filter(z => MARCADAS.includes('zona:' + z)), sueltas = MARCADAS.filter(m => !m.startsWith('zona:'));
+  const nombres = zonas.concat(sueltas.filter(o => !xs.some(x => x.obra === o && zonas.includes(x.zona))));
   document.querySelector('#obras summary').textContent =
-    todas ? 'Todas las obras' : ver.length === 1 ? ver[0] : ver.length + ' obras';
-  let pers = 0, dias = 0, conGente = 0;
-  document.querySelectorAll('#main section').forEach(s => {
-    s.hidden = !todas && !ver.includes(s.querySelector('h2 span').textContent.trim());
-    if (s.hidden) return;
-    const tot = s.querySelectorAll('td.tot');
+    todas ? 'Todas las obras' : nombres.length <= 2 ? nombres.join(' + ') : nombres.length + ' selecciones';
+  let pers = 0, dias = 0, conGente = 0, vistas = 0;
+  xs.forEach(x => {
+    x.s.hidden = !todas && !marcada(x);
+    if (x.s.hidden) return;
+    vistas++;
+    const tot = x.s.querySelectorAll('td.tot');
     if (tot.length) conGente++;
     tot.forEach(t => { pers++; dias += +t.textContent || 0; });
   });
@@ -91,21 +105,32 @@ function filtrarObras(){
   if (av) {
     let quedan = 0;
     av.querySelectorAll('li').forEach(li => {
-      li.hidden = !todas && !ver.some(o => li.textContent.startsWith(o + ':')); quedan += !li.hidden; });
+      li.hidden = !todas && !xs.some(x => marcada(x) && li.textContent.startsWith(x.obra + ':')); quedan += !li.hidden; });
     av.hidden = !quedan;
   }
+  let nada = document.getElementById('nada');
+  if (!todas && !vistas && xs.length) {
+    if (!nada) { nada = document.createElement('p'); nada.id = 'nada'; nada.className = 'av';
+      document.querySelector('#main .res').after(nada); }
+    nada.textContent = 'Tus obras marcadas (' + nombres.join(', ') + ') no tienen reportes esta semana en el libro.';
+  } else if (nada) nada.remove();
 }
 document.querySelector('#obras .lista').onchange = e => {
-  const c = e.target;
-  if (!c.value) MARCADAS = [];
-  else {
-    const hay = obrasEnPagina();
-    MARCADAS = MARCADAS.filter(o => o !== c.value && hay.includes(o)).concat(
-      MARCADAS.filter(o => !hay.includes(o)));  // conserva las que no salen esta semana
+  const c = e.target, t = c.dataset.t, xs = secciones();
+  if (t === 'todas') MARCADAS = [];
+  else if (t === 'zona') {
+    MARCADAS = MARCADAS.filter(m => m !== 'zona:' + c.value && !xs.some(x => x.obra === m && x.zona === c.value));
+    if (c.checked) MARCADAS.push('zona:' + c.value);
+  } else {
+    const x = xs.find(x => x.obra === c.value);
     if (c.checked) MARCADAS.push(c.value);
+    else if (MARCADAS.includes('zona:' + x.zona)) {  // desmarca una obra de una zona marcada: quedan las demás
+      MARCADAS = MARCADAS.filter(m => m !== 'zona:' + x.zona)
+        .concat(xs.filter(y => y.zona === x.zona && y.obra !== x.obra).map(y => y.obra));
+    } else MARCADAS = MARCADAS.filter(m => m !== c.value);
   }
-  try { localStorage.setItem('obras', JSON.stringify(MARCADAS)); } catch(e){}
-  filtrarObras();
+  MARCADAS = [...new Set(MARCADAS)];
+  guardar(); filtrarObras();
 };
 document.addEventListener('click', e => { const d = document.getElementById('obras'); if (!d.contains(e.target)) d.open = false; });
 armarObras();
