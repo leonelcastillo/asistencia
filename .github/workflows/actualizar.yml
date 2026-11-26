@@ -1,9 +1,9 @@
 name: Actualizar asistencia
-# Revisa el libro cada 5 min de 6:30 am a 7 pm (hora de Venezuela, UTC-4), lu-sa, y publica solo si cambio.
+# Revisa el libro cada 30 min de 6:30 am a 7 pm (hora de Venezuela, UTC-4), lu-sa, y publica solo si cambio.
 on:
   schedule:
-    - cron: "30,35,40,45,50,55 10 * * 1-6"
-    - cron: "*/5 11-22 * * 1-6"
+    - cron: "30 10 * * 1-6"
+    - cron: "0,30 11-22 * * 1-6"
     - cron: "0 23 * * 1-6"
   workflow_dispatch:
 permissions:

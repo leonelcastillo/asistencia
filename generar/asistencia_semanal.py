@@ -9,7 +9,7 @@ igual que el recorrido: la página pide la clave (archivo OCAS/.clave-asistencia
 descifra en el teléfono y tiene un selector de semanas. Cada corrida rehace la semana actual y la
 anterior (por si el libro se corrigió tarde) y crea las que falten desde INICIO.
 Con --si-cambia publica solo si el libro cambió desde la última vez (huella.txt en el repo de la página).
-Quien vigila es GitHub Actions (repo asistencia, .github/workflows/actualizar.yml, cada 5 min de 6:30 am a
+Quien vigila es GitHub Actions (repo asistencia, .github/workflows/actualizar.yml, cada 30 min de 6:30 am a
 7 pm, lu–sá) con los secretos MLDO_DB_URL (usuario de solo lectura) y ASISTENCIA_CLAVE: anda con la PC apagada.
 La PC queda de respaldo con la tarea "OCAS Asistencia semanal" (Publicar asistencia.vbs, cada 30 min) y es la
 que lleva a la nube los cambios de este script (copia en generar/), el logo y el workflow.
@@ -412,11 +412,11 @@ def instalable(web):
 
 
 WORKFLOW = """name: Actualizar asistencia
-# Revisa el libro cada 5 min de 6:30 am a 7 pm (hora de Venezuela, UTC-4), lu-sa, y publica solo si cambio.
+# Revisa el libro cada 30 min de 6:30 am a 7 pm (hora de Venezuela, UTC-4), lu-sa, y publica solo si cambio.
 on:
   schedule:
-    - cron: "30,35,40,45,50,55 10 * * 1-6"
-    - cron: "*/5 11-22 * * 1-6"
+    - cron: "30 10 * * 1-6"
+    - cron: "0,30 11-22 * * 1-6"
     - cron: "0 23 * * 1-6"
   workflow_dispatch:
 permissions:
